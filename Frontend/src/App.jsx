@@ -1,9 +1,27 @@
-import React from 'react'
+// client/src/App.jsx
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Navbar from './component/Navbar';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import MyBlogs from './pages/MyBlogs';
+import Profile from './pages/Profile';
+import Signup from './pages/Signup';
 
 function App() {
   return (
-    <h1 className="text-4xl font-bold text-blue-500">Hello Tailwind!</h1>
-  )
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/myblogs" element={<MyBlogs />} />
+        <Route path="/profile" element={<Profile />} />
+
+      </Routes>
+    </div>
+  );
 }
 
-export default App
+export default App;
