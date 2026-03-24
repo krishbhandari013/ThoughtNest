@@ -196,7 +196,7 @@ const Signup = () => {
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Create an account</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Join our community and start your journey
+              Join our community  and  start your journey
             </p>
           </div>
 
