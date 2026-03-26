@@ -11,6 +11,7 @@ export const blogPosts = [
     id: 1,
     title: "Getting Started with React Hooks",
     img : unknown,
+    views: 1234,
     writer: {
       id: 1,
       name: "John Doe"
@@ -25,6 +26,7 @@ export const blogPosts = [
     id: 2,
     title: "Mastering JavaScript Async/Await",
     img: unknown2,
+    views: 1234,
     writer: {
       id: 2,
       name: "Jane Smith"
@@ -39,6 +41,7 @@ export const blogPosts = [
     id: 3,
     title: "Building RESTful APIs with Node.js",
     img: unknown,
+    views: 1234,
     writer: {
       id: 3,
       name: "Mike Johnson"
@@ -53,6 +56,7 @@ export const blogPosts = [
     id: 4,
     title: "CSS Grid vs Flexbox: Which to Use?",
     img: unknown2,
+    views: 1234,
     writer: {
       id: 2,
       name: "Jane Smith"
@@ -67,6 +71,7 @@ export const blogPosts = [
     id: 5,
     title: "Introduction to Machine Learning",
     img: unknown,
+    views: 1234,
     writer: {
       id: 4,
       name: "Sarah Wilson"
@@ -80,7 +85,9 @@ export const blogPosts = [
   {
     id: 6,
     title: "10 Tips for Landing Your First Dev Job",
+
     img: unknown2,
+    views: 1234,
     writer: {
       id: 1,
       name: "John Doe"
@@ -94,6 +101,7 @@ export const blogPosts = [
   {
     id: 7,
     title: "Understanding React Server Components",
+    views: 1234,
     img: unknown,
     writer: {
       id: 1,
@@ -108,6 +116,7 @@ export const blogPosts = [
   {
     id: 8,
     title: "Docker for Beginners",
+    views: 1234,
     img: unknown2,
     writer: {
       id: 5,
@@ -122,6 +131,7 @@ export const blogPosts = [
   {
     id: 9,
     title: "TypeScript Best Practices",
+    views: 890,
     img: unknown,
     writer: {
       id: 3,
@@ -136,6 +146,7 @@ export const blogPosts = [
   {
     id: 10,
     title: "Tailwind CSS Tutorial",
+    views: 2345,
     img: unknown,
     writer: {
       id: 2,
@@ -150,6 +161,7 @@ export const blogPosts = [
   {
     id: 11,
     title: "GraphQL vs REST",
+    views: 1567,
     img: unknown,
     writer: {
       id: 4,
@@ -164,6 +176,7 @@ export const blogPosts = [
   {
     id: 12,
     title: "Next.js 14 Features",
+    views: 1234,
     img: unknown,
     writer: {
       id: 1,

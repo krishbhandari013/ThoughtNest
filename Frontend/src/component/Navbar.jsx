@@ -15,23 +15,23 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100">
+   <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           
           {/* Logo - Extreme Left */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0 -ml-2 sm:-ml-3">
-            <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
+        <Link to="/" className="flex items-center  flex-shrink-0 group">
+       <div className="w-16 h-16  flex items-center justify-center transition-all duration-300 group-hover:scale-105">
               <img 
                 src={Logo} 
-                alt="Blog Logo" 
-                className="w-9 h-9 object-contain"
+                alt="ThoughtNest" 
+                className="w-12 h-12 object-contain"
               />
             </div>
-            <span className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900">
-              ThoughtNest
-            </span>
-          </Link>
+          <span className="text-xl font-bold tracking-tight text-gray-900">
+            ThoughtNest
+          </span>
+        </Link>
 
           {/* Search - Desktop - Centered */}
           <div className="hidden md:block flex-1 max-w-2xl mx-auto px-8">

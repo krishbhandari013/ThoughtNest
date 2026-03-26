@@ -12,4 +12,13 @@
         .animate-slideDown {
           animation: slideDown 0.2s ease-out;
         }
+
+
+ html {
+  scroll-behavior: smooth;
+}
+
+.scroll-mt-20 {
+  scroll-margin-top: 5rem;
+}       
       
