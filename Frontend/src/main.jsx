@@ -7,11 +7,9 @@ import { BlogProvider } from './context/BlogContext';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
     <BlogProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
     </BlogProvider>
-  </React.StrictMode>
 );

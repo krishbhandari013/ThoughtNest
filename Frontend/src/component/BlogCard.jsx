@@ -6,6 +6,8 @@ const BlogCard = ({ post }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  console.log("component blogcard re rendered");
+
 
   // Format date to readable format
   const formatDate = (dateString) => {

@@ -5,7 +5,7 @@ import { useBlog } from '../context/BlogContext';
 const Filter = () => {
   const { filterType, changeFilter, searchQuery, clearSearch } = useBlog();
   const [isAnimating, setIsAnimating] = useState(false);
-  console.log("component filterre rendered");
+  console.log("component filtersrc/component/Navbar.jsxre rendered");
 
 
   const filters = [

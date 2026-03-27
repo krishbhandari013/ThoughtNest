@@ -3,6 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const HeroSection = () => {
+  console.log("component herosection re rendered");
+
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image with Dark Overlay */}
