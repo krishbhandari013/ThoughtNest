@@ -5,6 +5,7 @@ import HeroSection from '../component/HeroSection';
 import SkeletonCard from '../component/SkeletonCard';
 import Filter from '../component/Filter';
 import { useSearchParams } from 'react-router-dom';
+import Profile from './Profile';
 
 // Lazy load BlogCard for better performance
 const BlogCard = lazy(() => import('../component/BlogCard'));
@@ -123,6 +124,7 @@ const Home = () => {
               </div>
             )}
           </section>
+          
         </Suspense>
       </div>
     </>
