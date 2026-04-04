@@ -1,9 +1,11 @@
 // client/src/pages/auth/SignupPage.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { register } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,7 +24,6 @@ const Signup = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Clear error when user starts typing
     if (error) setError('');
   };
 
@@ -76,29 +77,22 @@ const Signup = () => {
     if (!validateForm()) return;
 
     setLoading(true);
+    setError('');
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await axios.post('/api/auth/register', {
-      //   name: formData.name,
-      //   email: formData.email,
-      //   password: formData.password
-      // });
-      // localStorage.setItem('token', response.data.token);
-      // localStorage.setItem('user', JSON.stringify(response.data.user));
+      const result = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      });
       
-      // Temporary demo - remove this when backend is ready
-      setTimeout(() => {
-        localStorage.setItem('token', 'demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: formData.name, 
-          email: formData.email,
-          provider: 'email'
-        }));
+      if (result.success) {
         navigate('/');
-      }, 1000);
+      } else {
+        setError(result.message);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong');
+      setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -110,21 +104,9 @@ const Signup = () => {
     setError('');
     
     try {
-      // TODO: Replace with actual Google OAuth integration
-      // window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
-      
-      setTimeout(() => {
-        localStorage.setItem('token', 'google-demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Google User', 
-          email: 'user@gmail.com',
-          provider: 'google'
-        }));
-        navigate('/');
-      }, 1000);
+      window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
     } catch (err) {
       setError('Google signup failed. Please try again.');
-    } finally {
       setSocialLoading(null);
     }
   };
@@ -135,21 +117,9 @@ const Signup = () => {
     setError('');
     
     try {
-      // TODO: Replace with actual Facebook OAuth integration
-      // window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/facebook`;
-      
-      setTimeout(() => {
-        localStorage.setItem('token', 'facebook-demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Facebook User', 
-          email: 'user@facebook.com',
-          provider: 'facebook'
-        }));
-        navigate('/');
-      }, 1000);
+      window.location.href = `${import.meta.env.VITE_API_URL}/auth/facebook`;
     } catch (err) {
       setError('Facebook signup failed. Please try again.');
-    } finally {
       setSocialLoading(null);
     }
   };
@@ -160,18 +130,15 @@ const Signup = () => {
     
     let strength = 0;
     
-    // Length check
     if (password.length >= 8) strength++;
     if (password.length >= 10) strength++;
     if (password.length >= 12) strength++;
     
-    // Character type checks
     if (/[A-Z]/.test(password)) strength++;
     if (/[a-z]/.test(password)) strength++;
     if (/[0-9]/.test(password)) strength++;
     if (/[^a-zA-Z0-9]/.test(password)) strength++;
     
-    // Determine strength level
     if (strength <= 2) return 'weak';
     if (strength <= 4) return 'fair';
     if (strength <= 6) return 'good';
@@ -196,7 +163,7 @@ const Signup = () => {
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Create an account</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Join our community  and  start your journey
+              Join our community and start your journey
             </p>
           </div>
 
@@ -362,7 +329,6 @@ const Signup = () => {
                 </div>
                 {formData.password && (
                   <div className="mt-2 space-y-2">
-                    {/* Strength meter */}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                         <div 
@@ -387,7 +353,6 @@ const Signup = () => {
                       </span>
                     </div>
                     
-                    {/* Password requirements checklist */}
                     <div className="text-xs space-y-1.5">
                       <div className={`flex items-center gap-1.5 ${formData.password.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">

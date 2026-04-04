@@ -11,7 +11,7 @@ import Profile from './Profile';
 const BlogCard = lazy(() => import('../component/BlogCard'));
 
 const Home = () => {
-  const { posts, loading, performSearch, searchQuery, filterType } = useBlog();
+  const { posts, loading, performSearch, searchQuery, filterType,clearSearch  } = useBlog();
   const [searchParams] = useSearchParams();
   const blogRef = useRef(null);
   console.log("component homepage re rendered");
@@ -73,16 +73,26 @@ const Home = () => {
             <Filter />
             
             {/* Search Results Info */}
-            {searchQuery && (
-              <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-                <p className="text-blue-700">
-                  Showing results for: <strong>"{searchQuery}"</strong>
-                </p>
-                <p className="text-sm text-blue-600 mt-1">
-                  Found {posts.length} post(s)
-                </p>
-              </div>
-            )}
+           {searchQuery && (
+                  <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-blue-700">
+                          Showing results for: <strong>"{searchQuery}"</strong>
+                        </p>
+                        <p className="text-sm text-blue-600 mt-1">
+                          Found {posts.length} post(s)
+                        </p>
+                      </div>
+                      <button
+                        onClick={clearSearch}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
 
             {/* Filter Info */}
             {filterType !== 'all' && !searchQuery && (

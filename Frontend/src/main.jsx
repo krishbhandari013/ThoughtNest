@@ -5,11 +5,16 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { BlogProvider } from './context/BlogContext';
 import './index.css';
+import { UserProvider } from './context/UserContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
+  <BrowserRouter> 
+  <UserProvider> {/* ✅ BrowserRouter must be FIRST */}
     <BlogProvider>
-      <BrowserRouter>
+     
         <App />
-      </BrowserRouter>
+      
     </BlogProvider>
+    </UserProvider>
+  </BrowserRouter>
 );

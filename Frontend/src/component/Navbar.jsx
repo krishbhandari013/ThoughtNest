@@ -3,32 +3,42 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Logo } from '../assets/assets';
 import { useBlog } from '../context/BlogContext';
+import { useUser } from '../context/UserContext';
 
 const Navbar = () => {
   const { performSearch, searchQuery, clearSearch } = useBlog();
+  const { user, isAuthenticated, logout } = useUser();
   const [searchQueryLocal, setSearchQueryLocal] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  console.log("component re rendered");
 
   // Sync local search query with context
   useEffect(() => {
     setSearchQueryLocal(searchQuery);
   }, [searchQuery]);
 
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.user-menu')) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showUserMenu]);
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQueryLocal.trim()) {
-      // Pass query to BlogContext
       performSearch(searchQueryLocal);
       
-      // If not on home page, navigate to home page
       if (location.pathname !== '/') {
         navigate('#blog');
       }
       
-      // Scroll to blog section after search
       setTimeout(() => {
         const blogSection = document.getElementById('blog');
         if (blogSection) {
@@ -39,7 +49,6 @@ const Navbar = () => {
         }
       }, 100);
       
-      // Close mobile menu if open
       setIsMobileMenuOpen(false);
     }
   };
@@ -48,7 +57,6 @@ const Navbar = () => {
     setSearchQueryLocal('');
     clearSearch();
     
-    // Scroll to blog section after clearing
     setTimeout(() => {
       const blogSection = document.getElementById('blog');
       if (blogSection) {
@@ -63,6 +71,23 @@ const Navbar = () => {
   const handleLogoClick = () => {
     clearSearch();
     navigate('/');
+  };
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+    navigate('/');
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user?.name) return '?';
+    return user.name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -125,19 +150,91 @@ const Navbar = () => {
               </form>
             </div>
 
-            {/* Desktop Actions */}
+            {/* Desktop Actions - Conditional based on auth */}
             <div className="hidden md:flex items-center gap-4">
-              <Link 
-                to="/login" 
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Log in
-              </Link>
-              <Link to="/signup">
-                <button className="px-5 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
-                  Sign up
-                </button>
-              </Link>
+              {isAuthenticated && user ? (
+                // Logged in - Show user profile menu
+                <div className="relative user-menu">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 focus:outline-none"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">
+                      {user.avatar ? (
+                        <img 
+                          src={user.avatar} 
+                          alt={user.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        getUserInitials()
+                      )}
+                    </div>
+                    <svg 
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-fadeIn">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        to="/profile"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        My Profile
+                      </Link>
+                      <Link
+                        to="/myblogs"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                        </svg>
+                        My Blogs
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Not logged in - Show login/signup buttons
+                <>
+                  <Link 
+                    to="/login" 
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Log in
+                  </Link>
+                  <Link to="/signup">
+                    <button className="px-5 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+                      Sign up
+                    </button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -215,25 +312,67 @@ const Navbar = () => {
             {/* Mobile Menu Dropdown */}
             {isMobileMenuOpen && (
               <div className="py-4 border-t border-gray-100 animate-slideDown">
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Log in */}
-                  <Link
-                    to="/login"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="px-4 py-3 text-center text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                  >
-                    Log in
-                  </Link>
-                  
-                  {/* Sign up */}
-                  <Link
-                    to="/signup"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="px-4 py-3 text-center text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors"
-                  >
-                    Sign up
-                  </Link>
-                </div>
+                {isAuthenticated && user ? (
+                  // Mobile - Logged in view
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium">
+                        {getUserInitials()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                      </div>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/myblogs"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                      </svg>
+                      My Blogs
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  // Mobile - Not logged in view
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="px-4 py-3 text-center text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="px-4 py-3 text-center text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors"
+                    >
+                      Sign up
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -241,23 +380,17 @@ const Navbar = () => {
       </nav>
 
       {/* Active Search Indicator Bar */}
-      {searchQuery && (
-        <div className="bg-blue-50 border-b border-blue-100 sticky top-14 sm:top-16 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-blue-700">
-                  🔍 Searching: <strong>"{searchQuery}"</strong>
-                </span>
-              </div>
-              <button
-                onClick={handleClearSearch}
-                className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
-              >
-                Clear Search
-              </button>
-            </div>
-          </div>
+      {searchQueryLocal && (
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 text-center">
+          <p className="text-sm text-gray-600">
+            Showing results for: <span className="font-medium text-gray-900">"{searchQueryLocal}"</span>
+            <button 
+              onClick={handleClearSearch}
+              className="ml-3 text-xs text-gray-400 hover:text-gray-600"
+            >
+              Clear
+            </button>
+          </p>
         </div>
       )}
     </>

@@ -1,9 +1,13 @@
 // client/src/pages/auth/LoginPage.jsx
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
+import userService from '../services/userService';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, checkAuth } = useUser();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -12,11 +16,59 @@ const Login = () => {
   const [socialLoading, setSocialLoading] = useState(null);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const onOAuthMessage = async (event) => {
+      if (!event.data || typeof event.data !== 'object') {
+        return;
+      }
+
+      if (event.data.type === 'oauth-error') {
+        setSocialLoading(null);
+        setError(event.data.message || 'Social login failed. Please try again.');
+        return;
+      }
+
+      if (event.data.type !== 'oauth-success') {
+        return;
+      }
+
+      setSocialLoading(null);
+      setError('');
+      await checkAuth();
+      navigate('/');
+    };
+
+    window.addEventListener('message', onOAuthMessage);
+    return () => window.removeEventListener('message', onOAuthMessage);
+  }, [checkAuth, navigate]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const authError = params.get('error');
+
+    if (!authError) {
+      return;
+    }
+
+    if (authError === 'facebook_auth_failed') {
+      setError('Facebook login failed. Check app setup and try again.');
+      return;
+    }
+
+    if (authError === 'auth_failed') {
+      setError('Authentication failed. Please try again.');
+      return;
+    }
+
+    setError('Unable to complete social login. Please try again.');
+  }, [location.search]);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -25,87 +77,55 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await axios.post('/api/auth/login', formData);
-      // localStorage.setItem('token', response.data.token);
-      // localStorage.setItem('user', JSON.stringify(response.data.user));
+      const result = await login({
+        email: formData.email,
+        password: formData.password
+      });
       
-      // Temporary demo - remove this when backend is ready
-      if (formData.email === 'demo@example.com' && formData.password === 'password') {
-        localStorage.setItem('token', 'demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Demo User', 
-          email: formData.email,
-          provider: 'email'
-        }));
+      if (result.success) {
         navigate('/');
       } else {
-        setError('Invalid email or password');
+        setError(result.message);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong');
+      setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
   };
 
   // Google Login Handler
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     setSocialLoading('google');
     setError('');
     
     try {
-      // TODO: Replace with actual Google OAuth integration
-      // Option 1: Redirect to backend Google OAuth endpoint
-      // window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
-      
-      // Option 2: Use Google OAuth library (react-google-login or @react-oauth/google)
-      // For demo purposes, simulate successful login
-      setTimeout(() => {
-        localStorage.setItem('token', 'google-demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Google User', 
-          email: 'user@gmail.com',
-          provider: 'google',
-          avatar: 'https://via.placeholder.com/40'
-        }));
-        navigate('/');
-      }, 1000);
-      
+      // Redirect to backend Google OAuth endpoint
+      userService.googleLogin();
     } catch (err) {
       setError('Google login failed. Please try again.');
-    } finally {
       setSocialLoading(null);
     }
   };
 
   // Facebook Login Handler
-  const handleFacebookLogin = async () => {
+ const handleFacebookLogin = () => {
     setSocialLoading('facebook');
     setError('');
-    
-    try {
-      // TODO: Replace with actual Facebook OAuth integration
-      // Option 1: Redirect to backend Facebook OAuth endpoint
-      // window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/facebook`;
-      
-      // For demo purposes, simulate successful login
-      setTimeout(() => {
-        localStorage.setItem('token', 'facebook-demo-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Facebook User', 
-          email: 'user@facebook.com',
-          provider: 'facebook',
-          avatar: 'https://via.placeholder.com/40'
-        }));
-        navigate('/');
-      }, 1000);
-      
-    } catch (err) {
-      setError('Facebook login failed. Please try again.');
-    } finally {
+
+    const popup = userService.facebookLoginPopup();
+    if (!popup) {
       setSocialLoading(null);
+      setError('Popup was blocked. Please allow popups or try again.');
+      return;
     }
+
+    const poll = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(poll);
+        setSocialLoading((current) => (current === 'facebook' ? null : current));
+      }
+    }, 500);
   };
 
   return (
@@ -134,7 +154,7 @@ const Login = () => {
             <div className="space-y-3 mb-6">
               <button
                 onClick={handleGoogleLogin}
-                disabled={socialLoading !== null}
+                disabled={socialLoading !== null || loading}
                 className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {socialLoading === 'google' ? (
@@ -157,7 +177,7 @@ const Login = () => {
 
               <button
                 onClick={handleFacebookLogin}
-                disabled={socialLoading !== null}
+                disabled={socialLoading !== null || loading}
                 className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {socialLoading === 'facebook' ? (
@@ -174,6 +194,9 @@ const Login = () => {
                   </>
                 )}
               </button>
+              <p className="text-xs text-gray-500 px-1">
+                Continue with Facebook opens Facebook login, where you enter your Facebook email and password.
+              </p>
             </div>
 
             {/* Divider */}
@@ -282,9 +305,6 @@ const Login = () => {
                 )}
               </button>
             </form>
-
-           
-           
           </div>
 
           {/* Footer */}
@@ -292,7 +312,7 @@ const Login = () => {
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
               <Link to="/signup" className="font-medium text-gray-900 hover:underline">
-                Sign up 
+                Sign up
               </Link>
             </p>
           </div>

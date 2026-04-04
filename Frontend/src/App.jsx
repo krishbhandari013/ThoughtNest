@@ -8,6 +8,8 @@ import MyBlogs from './pages/MyBlogs';
 import Profile from './pages/Profile';
 import Signup from './pages/Signup';
 import Blog from './pages/Blog';
+import GoogleCallback from './pages/Googlecallback';
+import CreateBlog from './pages/CreateBlog';
 
 function App() {
   return (
@@ -20,9 +22,11 @@ function App() {
         <Route path="/myblogs" element={<MyBlogs />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/blog/:id" element={<Blog />} />
+        <Route path="/callback" element={<GoogleCallback />} />
+         <Route path="/create-blog" element={<CreateBlog />} />
+      
 
       </Routes>
-      <Profile />
   
     </div>
   );

@@ -71,22 +71,7 @@ const Filter = () => {
               ))}
             </div>
 
-            {/* Search Status */}
-            {searchQuery && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    Searching: <span className="font-medium text-gray-900">"{searchQuery}"</span>
-                  </span>
-                </div>
-                <button
-                  onClick={handleClearSearch}
-                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
+           
           </div>
         </div>
       </div>
@@ -99,12 +84,7 @@ const Filter = () => {
             <span className="text-sm text-gray-600">
               Searching: <span className="font-medium text-gray-900">"{searchQuery}"</span>
             </span>
-            <button
-              onClick={handleClearSearch}
-              className="text-sm text-gray-400 hover:text-gray-600"
-            >
-              Clear
-            </button>
+        
           </div>
         )}
 

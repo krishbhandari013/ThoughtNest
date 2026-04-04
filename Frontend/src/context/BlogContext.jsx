@@ -41,11 +41,44 @@ export const BlogProvider = ({ children }) => {
   // Load initial blog posts
   useEffect(() => {
     console.log('Loading posts...', blogPosts);
-    setAllPosts(blogPosts);
+    if (blogPosts && Array.isArray(blogPosts)) {
+      setAllPosts(blogPosts);
+    } else {
+      console.error('blogPosts is not an array:', blogPosts);
+      setAllPosts([]);
+    }
     setLoading(false);
   }, []);
 
-  // Memoize filtered and sorted posts - only recomputes when dependencies change
+  // ✅ Get posts by writer name - ADD THIS FUNCTION
+  const getPostsByWriter = useCallback((writerName) => {
+    if (!allPosts || !Array.isArray(allPosts)) return [];
+    return allPosts.filter(post => post?.writer?.name === writerName);
+  }, [allPosts]);
+
+  // ✅ Get post by ID - ADD THIS FUNCTION
+  const getPostById = useCallback((id) => {
+    if (!allPosts || !Array.isArray(allPosts)) return null;
+    return allPosts.find(post => post?.id === parseInt(id));
+  }, [allPosts]);
+
+  // ✅ Get latest posts - ADD THIS FUNCTION
+  const getLatestPosts = useCallback((limit = 6) => {
+    if (!allPosts || !Array.isArray(allPosts)) return [];
+    return [...allPosts]
+      .sort((a, b) => new Date(b?.date) - new Date(a?.date))
+      .slice(0, limit);
+  }, [allPosts]);
+
+  // ✅ Get trending posts - ADD THIS FUNCTION
+  const getTrendingPosts = useCallback((limit = 4) => {
+    if (!allPosts || !Array.isArray(allPosts)) return [];
+    return [...allPosts]
+      .sort((a, b) => (b?.likes + b?.comments + b?.shares) - (a?.likes + a?.comments + a?.shares))
+      .slice(0, limit);
+  }, [allPosts]);
+
+  // Memoize filtered and sorted posts
   const filteredAndSortedPosts = useMemo(() => {
     console.log('Recomputing filtered posts...', { searchQuery, filterType });
     
@@ -62,9 +95,6 @@ export const BlogProvider = ({ children }) => {
           (post.writer && post.writer.name && post.writer.name.toLowerCase().includes(query)) ||
           (post.tags && post.tags.some(tag => tag.toLowerCase().includes(query)));
         
-        if (matches) {
-          console.log('Post matched:', post.title);
-        }
         return matches;
       });
     }
@@ -81,24 +111,17 @@ export const BlogProvider = ({ children }) => {
         result.sort((a, b) => (b.views || 0) - (a.views || 0));
         break;
       default:
-        // 'all' - keep original order
         result.sort((a, b) => a.id - b.id);
         break;
     }
 
-    console.log('Filtered posts count:', result.length);
     return result;
-  }, [allPosts, searchQuery, filterType]); // Only recompute when these change
+  }, [allPosts, searchQuery, filterType]);
 
-  // Memoize paginated posts (if you add pagination later)
-  const posts = useMemo(() => {
-    return filteredAndSortedPosts;
-  }, [filteredAndSortedPosts]);
+  const posts = useMemo(() => filteredAndSortedPosts, [filteredAndSortedPosts]);
 
-  // Memoize functions with useCallback to prevent recreation on every render
   const performSearch = useCallback((query) => {
     console.log('Performing search:', query);
-    // Skip if same as current
     if (query === previousSearchQuery.current) return;
     previousSearchQuery.current = query;
     setSearchQuery(query);
@@ -113,13 +136,11 @@ export const BlogProvider = ({ children }) => {
 
   const changeFilter = useCallback((filter) => {
     console.log('Changing filter:', filter);
-    // Skip if same as current
     if (filter === previousFilterType.current) return;
     previousFilterType.current = filter;
     setFilterType(filter);
   }, []);
 
-  // Debounced search for better performance (optional)
   const debouncedSearch = useCallback((query) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -129,7 +150,7 @@ export const BlogProvider = ({ children }) => {
     }, 300);
   }, [performSearch]);
 
-  // Memoize the context value to prevent unnecessary re-renders
+  // ✅ Include all functions in the context value
   const value = useMemo(() => ({
     posts,
     allPosts,
@@ -139,9 +160,13 @@ export const BlogProvider = ({ children }) => {
     performSearch,
     clearSearch,
     changeFilter,
-    // Optional: expose debounced version
-    debouncedSearch
-  }), [posts, allPosts, searchQuery, filterType, loading, performSearch, clearSearch, changeFilter, debouncedSearch]);
+    debouncedSearch,
+    // ✅ Add these new functions
+    getPostsByWriter,
+    getPostById,
+    getLatestPosts,
+    getTrendingPosts
+  }), [posts, allPosts, searchQuery, filterType, loading, performSearch, clearSearch, changeFilter, debouncedSearch, getPostsByWriter, getPostById, getLatestPosts, getTrendingPosts]);
 
   return (
     <BlogContext.Provider value={value}>

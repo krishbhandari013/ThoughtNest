@@ -5,7 +5,7 @@ import { useBlog } from '../context/BlogContext';
 
 const Blog = () => {
   const { id } = useParams();
-  const { allPosts } = useBlog();
+  const { posts } = useBlog();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
@@ -15,14 +15,14 @@ const Blog = () => {
 
   useEffect(() => {
     setTimeout(() => {
-      const foundPost = allPosts.find(p => p.id === parseInt(id));
+      const foundPost = posts.find(p => p.id === parseInt(id));
       setPost(foundPost);
       if (foundPost) {
         setLikesCount(foundPost.likes || 0);
       }
       setLoading(false);
     }, 500);
-  }, [id, allPosts]);
+  }, [id, posts]);
 
   const handleLike = () => {
     if (!liked) {
