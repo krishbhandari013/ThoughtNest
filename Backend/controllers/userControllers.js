@@ -4,6 +4,7 @@ import generateToken from '../utils/generateToken.js';
 // @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
+// server/controllers/userControllers.js
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -17,86 +18,74 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Create new user instance
-    const user = new User({
+    // ✅ Password is required for email registration
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
+    }
+
+    // Create user with password (only for email registration)
+    const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password
+      password: password, // This will be hashed by pre-save hook
     });
 
-    // Save user to database
-    await user.save();
-
-    // Remove password from response
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    // Generate token
+    const token = generateToken(user._id);
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       data: {
-        _id: userResponse._id,
-        name: userResponse.name,
-        email: userResponse.email,
-        role: userResponse.role,
-        createdAt: userResponse.createdAt,
-        token: generateToken(userResponse._id)
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: token
       }
     });
   } catch (error) {
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors
-      });
-    }
-
-    // Handle duplicate key error
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
-    }
-
     console.error('Register error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during registration',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
+
+
 // @desc    Login user
-// @route   POST /api/auth/login
+// @route   POST /api/users/login
 // @access  Public
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Validate email & password presence
+    
+    // ✅ Validate input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password'
       });
     }
-
-    // Check for user with password selection
+    
+    // ✅ Find user by email (include password field)
     const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
     
+    // ✅ Check if user exists
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
-
-    // Check password
+    
+    // ✅ Check password
     const isPasswordMatch = await user.matchPassword(password);
     
     if (!isPasswordMatch) {
@@ -105,25 +94,28 @@ export const loginUser = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
-
-    // Update last login
-    user.lastLogin = Date.now();
-    await user.save({ validateBeforeSave: false });
-
-    // Remove password from response
-    const userResponse = user.toObject();
-    delete userResponse.password;
-
+    
+    // ✅ Generate token
+    const token = generateToken(user._id);
+    
+    // ✅ Return success response
     res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
-        ...userResponse,
-        token: generateToken(user._id)
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: token
       }
     });
+    
   } catch (error) {
-    console.error('Login error:', error);
+    // ✅ Log the actual error for debugging
+    console.error('Login error details:', error);
+    
+    // ✅ Send appropriate error response
     res.status(500).json({
       success: false,
       message: 'Server error during login',
@@ -135,8 +127,25 @@ export const loginUser = async (req, res) => {
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private
+// controllers/userControllers.js
 export const getMe = async (req, res) => {
   try {
+    // ✅ Check if req.user exists
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated'
+      });
+    }
+    
+    // ✅ Check if req.user has id
+    if (!req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid user data'
+      });
+    }
+    
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
@@ -145,7 +154,7 @@ export const getMe = async (req, res) => {
         message: 'User not found'
       });
     }
-
+    
     res.status(200).json({
       success: true,
       data: {
@@ -153,12 +162,7 @@ export const getMe = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        avatar: user.avatar,
-        bio: user.bio,
-        location: user.location,
-        website: user.website,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin
+        createdAt: user.createdAt
       }
     });
   } catch (error) {
