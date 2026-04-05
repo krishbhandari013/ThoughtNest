@@ -36,14 +36,27 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || '';
+    const isAuthEndpoint =
+      requestUrl.includes('/users/login') ||
+      requestUrl.includes('/users/register');
+    const refreshToken = Cookies.get('refreshToken');
+
+    // Let auth endpoints surface backend messages directly (e.g. invalid email/password).
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
     
     // If token expired (401) and not already retrying
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (!refreshToken) {
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
       
       try {
         // Try to refresh token
-        const refreshToken = Cookies.get('refreshToken');
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/auth/refresh-token`,
           { refreshToken },

@@ -10,10 +10,34 @@ import Signup from './pages/Signup';
 import Blog from './pages/Blog';
 import GoogleCallback from './pages/Googlecallback';
 import CreateBlog from './pages/CreateBlog';
-
+import { Toaster } from 'react-hot-toast';
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster 
+  position="top-right"
+  toastOptions={{
+    duration: 4000,
+    style: {
+      background: '#363636',
+      color: '#fff',
+    },
+    success: {
+      duration: 3000,
+      iconTheme: {
+        primary: '#22c55e',
+        secondary: '#fff',
+      },
+    },
+    error: {
+      duration: 4000,
+      iconTheme: {
+        primary: '#ef4444',
+        secondary: '#fff',
+      },
+    },
+  }}
+/>
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />

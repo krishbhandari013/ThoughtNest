@@ -1,11 +1,13 @@
 // client/src/pages/auth/SignupPage.jsx
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import userService from '../services/userService';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { register } = useUser();
+  const location = useLocation();
+  const { register, isAuthenticated, checkAuth } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,6 +20,77 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [error]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    const onOAuthMessage = async (event) => {
+      if (!event.data || typeof event.data !== 'object') {
+        return;
+      }
+
+      if (event.data.type === 'oauth-error') {
+        setSocialLoading(null);
+        setError(event.data.message || 'Social signup failed. Please try again.');
+        return;
+      }
+
+      if (event.data.type !== 'oauth-success') {
+        return;
+      }
+
+      setSocialLoading(null);
+      setError('');
+      await checkAuth();
+      navigate('/', { replace: true });
+    };
+
+    window.addEventListener('message', onOAuthMessage);
+    return () => window.removeEventListener('message', onOAuthMessage);
+  }, [checkAuth, navigate]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const backendMessage = params.get('message') || params.get('error_description');
+    const authError = params.get('error');
+
+    if (backendMessage) {
+      try {
+        setError(decodeURIComponent(backendMessage));
+      } catch {
+        setError(backendMessage);
+      }
+      return;
+    }
+
+    if (!authError) {
+      return;
+    }
+
+    if (authError === 'facebook_auth_failed') {
+      setError('Facebook signup failed. Check app setup and try again.');
+      return;
+    }
+
+    if (authError === 'auth_failed') {
+      setError('Authentication failed. Please try again.');
+      return;
+    }
+
+    setError(authError);
+  }, [location.search]);
 
   const handleChange = (e) => {
     setFormData({
@@ -87,7 +160,7 @@ const Signup = () => {
       });
       
       if (result.success) {
-        navigate('/');
+        navigate('/', { replace: true });
       } else {
         setError(result.message);
       }
@@ -99,29 +172,43 @@ const Signup = () => {
   };
 
   // Google Signup Handler
-  const handleGoogleSignup = async () => {
+  const handleGoogleSignup = () => {
     setSocialLoading('google');
     setError('');
     
-    try {
-      window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
-    } catch (err) {
-      setError('Google signup failed. Please try again.');
+    const popup = userService.googleLoginPopup();
+    if (!popup) {
+      setError('Popup was blocked. Please allow popups or try again.');
       setSocialLoading(null);
+      return;
     }
+
+    const poll = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(poll);
+        setSocialLoading((current) => (current === 'google' ? null : current));
+      }
+    }, 500);
   };
 
   // Facebook Signup Handler
-  const handleFacebookSignup = async () => {
+  const handleFacebookSignup = () => {
     setSocialLoading('facebook');
     setError('');
-    
-    try {
-      window.location.href = `${import.meta.env.VITE_API_URL}/auth/facebook`;
-    } catch (err) {
-      setError('Facebook signup failed. Please try again.');
+
+    const popup = userService.facebookLoginPopup();
+    if (!popup) {
+      setError('Popup was blocked. Please allow popups or try again.');
       setSocialLoading(null);
+      return;
     }
+
+    const poll = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(poll);
+        setSocialLoading((current) => (current === 'facebook' ? null : current));
+      }
+    }, 500);
   };
 
   // Password strength indicator

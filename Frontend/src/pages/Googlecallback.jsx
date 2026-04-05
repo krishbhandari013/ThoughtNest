@@ -29,8 +29,35 @@ const GoogleCallback = () => {
   useEffect(() => {
     // Parse the URL parameters
     const params = new URLSearchParams(location.search);
+    const authError = params.get('error');
+    const backendMessage = params.get('message') || params.get('error_description');
     const token = params.get('token');
     const userParam = params.get('user');
+
+    if (authError) {
+      const decodedMessage = (() => {
+        if (!backendMessage) {
+          if (authError === 'facebook_auth_failed') return 'Facebook login failed. Check app setup and try again.';
+          if (authError === 'google_auth_failed') return 'Google login failed. Please try again.';
+          if (authError === 'auth_failed') return 'Authentication failed. Please try again.';
+          return authError;
+        }
+
+        try {
+          return decodeURIComponent(backendMessage);
+        } catch {
+          return backendMessage;
+        }
+      })();
+
+      if (notifyOpenerAndClose({ type: 'oauth-error', message: decodedMessage })) {
+        return;
+      }
+
+      const safeMessage = encodeURIComponent(decodedMessage);
+      navigate(`/login?error=${encodeURIComponent(authError)}&message=${safeMessage}`);
+      return;
+    }
     
     if (token && userParam) {
       try {
@@ -59,13 +86,14 @@ const GoogleCallback = () => {
         if (notifyOpenerAndClose({ type: 'oauth-error', message: 'Invalid OAuth response.' })) {
           return;
         }
-        navigate('/login');
+        navigate('/login?error=invalid_oauth_response&message=Invalid%20OAuth%20response.');
       }
     } else {
-      if (notifyOpenerAndClose({ type: 'oauth-error', message: 'Missing OAuth parameters.' })) {
+      const missingParamsMessage = 'Missing OAuth parameters.';
+      if (notifyOpenerAndClose({ type: 'oauth-error', message: missingParamsMessage })) {
         return;
       }
-      navigate('/login');
+      navigate('/login?error=missing_oauth_parameters&message=Missing%20OAuth%20parameters.');
     }
   }, [location, navigate]);
 

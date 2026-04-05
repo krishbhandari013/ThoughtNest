@@ -10,11 +10,20 @@ const Login = () => {
   const { login, checkAuth } = useUser();
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    rememberMe: false,
   });
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [error]);
 
   useEffect(() => {
     const onOAuthMessage = async (event) => {
@@ -44,7 +53,17 @@ const Login = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const backendMessage = params.get('message') || params.get('error_description');
     const authError = params.get('error');
+
+    if (backendMessage) {
+      try {
+        setError(decodeURIComponent(backendMessage));
+      } catch {
+        setError(backendMessage);
+      }
+      return;
+    }
 
     if (!authError) {
       return;
@@ -60,14 +79,17 @@ const Login = () => {
       return;
     }
 
-    setError('Unable to complete social login. Please try again.');
+    setError(authError);
   }, [location.search]);
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value,
     });
+
     if (error) setError('');
   };
 
@@ -80,12 +102,12 @@ const Login = () => {
       const result = await login({
         email: formData.email,
         password: formData.password
-      });
+      }, { rememberMe: formData.rememberMe });
       
       if (result.success) {
         navigate('/');
       } else {
-        setError(result.message);
+        setError(result.message || 'Login failed');
       }
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -95,17 +117,23 @@ const Login = () => {
   };
 
   // Google Login Handler
-  const handleGoogleLogin = () => {
+   const handleGoogleLogin = () => {
     setSocialLoading('google');
     setError('');
     
-    try {
-      // Redirect to backend Google OAuth endpoint
-      userService.googleLogin();
-    } catch (err) {
-      setError('Google login failed. Please try again.');
+    const popup = userService.googleLoginPopup();
+    if (!popup) {
+      setError('Popup was blocked. Please allow popups or try again.');
       setSocialLoading(null);
+      return;
     }
+
+    const poll = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(poll);
+        setSocialLoading((current) => (current === 'google' ? null : current));
+      }
+    }, 500);
   };
 
   // Facebook Login Handler
@@ -144,7 +172,7 @@ const Login = () => {
             </div>
             <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Sign in to your account to continue
+              Login in to your account to continue
             </p>
           </div>
 
@@ -194,9 +222,7 @@ const Login = () => {
                   </>
                 )}
               </button>
-              <p className="text-xs text-gray-500 px-1">
-                Continue with Facebook opens Facebook login, where you enter your Facebook email and password.
-              </p>
+              
             </div>
 
             {/* Divider */}
@@ -274,8 +300,10 @@ const Login = () => {
                 <label className="flex items-center cursor-pointer">
                   <input
                     id="remember-me"
-                    name="remember-me"
+                    name="rememberMe"
                     type="checkbox"
+                    checked={formData.rememberMe}
+                    onChange={handleChange}
                     className="h-4 w-4 text-gray-900 focus:ring-gray-900 border-gray-300 rounded cursor-pointer"
                   />
                   <span className="ml-2 block text-sm text-gray-700">
@@ -301,7 +329,7 @@ const Login = () => {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 ) : (
-                  'Sign in with email'
+                  'Login in with email'
                 )}
               </button>
             </form>

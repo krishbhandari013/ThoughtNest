@@ -18,6 +18,58 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  const getErrorMessage = (error, fallbackMessage) => {
+    const validationErrors =
+      error?.response?.data?.errors ||
+      error?.data?.errors ||
+      error?.errors;
+
+    if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+      const readableErrors = validationErrors
+        .map((item) => {
+          if (typeof item === 'string') {
+            return item.trim();
+          }
+
+          if (item && typeof item === 'object') {
+            const field = typeof item.field === 'string' ? item.field.trim() : '';
+            const message = typeof item.message === 'string' ? item.message.trim() : '';
+
+            if (field && message && field !== 'form') {
+              return `${field}: ${message}`;
+            }
+
+            if (message) {
+              return message;
+            }
+          }
+
+          return '';
+        })
+        .filter(Boolean);
+
+      if (readableErrors.length > 0) {
+        return readableErrors.join(', ');
+      }
+    }
+
+    const message =
+      error?.response?.data?.message ||
+      error?.data?.message ||
+      error?.error ||
+      error?.message;
+
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+
+    if (typeof error === 'string' && error.trim()) {
+      return error;
+    }
+
+    return fallbackMessage;
+  };
+
   // Check authentication on app load
   useEffect(() => {
     checkAuth();
@@ -49,8 +101,12 @@ export const UserProvider = ({ children }) => {
       const response = await userService.register(userData);
       console.log('📝 Register response:', response);
       
-      const authData = response.data;
-      const { token, ...userDataResponse } = authData.data;
+      const authData = response?.data;
+      const { token, ...userDataResponse } = authData || {};
+
+      if (!token) {
+        throw new Error('Registration response did not include an auth token');
+      }
       
       // Save token in cookie
       Cookies.set('token', token, { 
@@ -70,27 +126,37 @@ export const UserProvider = ({ children }) => {
       console.error('❌ Registration error:', error);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Registration failed' 
+        message: getErrorMessage(error, 'Registration failed')
       };
     }
   };
 
-  const login = async (credentials) => {
+  const login = async (credentials, options = {}) => {
     try {
       console.log('🔐 Logging in user:', credentials.email);
       const response = await userService.login(credentials);
       console.log('🔐 Login response:', response);
       
-      const authData = response.data;
-      const { token, ...userDataResponse } = authData.data;
+      const authData = response?.data;
+      const { token, ...userDataResponse } = authData || {};
+      const rememberMe = Boolean(options.rememberMe);
+
+      if (!token) {
+        throw new Error('Login response did not include an auth token');
+      }
       
       // Save token in cookie
-      Cookies.set('token', token, { 
-        expires: 7,
+      const cookieOptions = {
         secure: false,
         sameSite: 'lax',
         path: '/'
-      });
+      };
+
+      if (rememberMe) {
+        cookieOptions.expires = 7;
+      }
+
+      Cookies.set('token', token, cookieOptions);
       
       console.log('✅ Token saved in cookie');
       
@@ -102,7 +168,7 @@ export const UserProvider = ({ children }) => {
       console.error('❌ Login error:', error);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Login failed' 
+        message: getErrorMessage(error, 'Login failed')
       };
     }
   };
@@ -130,13 +196,13 @@ export const UserProvider = ({ children }) => {
       const response = await userService.updateProfile(userData);
       console.log('📝 Update response:', response);
       
-      setUser(response.data);
+      setUser(response);
       return { success: true, data: response };
     } catch (error) {
       console.error('❌ Update profile error:', error);
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Update failed' 
+        message: getErrorMessage(error, 'Update failed')
       };
     }
   };
@@ -148,7 +214,7 @@ export const UserProvider = ({ children }) => {
     } catch (error) {
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Password change failed' 
+        message: getErrorMessage(error, 'Password change failed')
       };
     }
   };
