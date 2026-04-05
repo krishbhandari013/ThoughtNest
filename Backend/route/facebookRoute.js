@@ -14,7 +14,7 @@ facebookRouter.get(
   '/facebook/callback',
   passport.authenticate('facebook', {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=facebook_auth_failed`,
+    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/callback?error=facebook_auth_failed`,
   }),
   (req, res) => {
     try {
@@ -42,7 +42,9 @@ facebookRouter.get(
       res.redirect(redirectUrl);
     } catch (error) {
       console.error('Facebook callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=auth_failed`);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const message = encodeURIComponent(error?.message || 'Authentication failed');
+      res.redirect(`${frontendUrl}/callback?error=auth_failed&message=${message}`);
     }
   }
 );

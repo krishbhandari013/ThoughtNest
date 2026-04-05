@@ -11,9 +11,11 @@ export const protect = async (req, res, next) => {
 
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Decoded token:', decoded); // Debugging log
 
       // Get user from the token
       req.user = await User.findById(decoded.id).select('-password');
+      console.log('Authenticated user:', req.user); // Debugging log
 
       if (!req.user) {
         return res.status(401).json({
