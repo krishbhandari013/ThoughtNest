@@ -4,24 +4,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useBlog } from '../context/BlogContext';
 import { useUser } from '../context/UserContext';
 import BlogCard from '../component/BlogCard';
-import axiosInstance from '../services/axiosInstance';
+import profileService from '../services/profileService';
 import { toast } from 'react-hot-toast';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, logout, updateProfile } = useUser();
+  const { user, loading: authLoading, logout } = useUser();
   const { getPostsByWriter, loading: blogLoading } = useBlog();
   
   // State management
   const [userPosts, setUserPosts] = useState([]);
-  const [userComments, setUserComments] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState('posts');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [coverPreview, setCoverPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
@@ -30,38 +30,46 @@ const Profile = () => {
     name: '',
     email: '',
     bio: '',
-    avatar: '',
-    coverImage: '',
     location: '',
     website: '',
-    twitter: '',
-    github: '',
-    linkedin: ''
+    socialLinks: {
+      twitter: '',
+      github: '',
+      linkedin: ''
+    }
   });
 
-  // Debug logging
+  // Fetch profile data on component mount
   useEffect(() => {
-    console.log('Profile Component - User:', user);
-  }, [user]);
-
-  // Initialize form data when user loads
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        bio: user.bio || '',
-        avatar: user.avatar || '',
-        coverImage: user.coverImage || '',
-        location: user.location || '',
-        website: user.website || '',
-        twitter: user.twitter || '',
-        github: user.github || '',
-        linkedin: user.linkedin || ''
-      });
-      setAvatarPreview(user.avatar || '');
-      setCoverPreview(user.coverImage || '');
-    }
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await profileService.getMyProfile();
+        setProfileData(response.data);
+        setFormData({
+          name: user.name || '',
+          email: user.email || '',
+          bio: response.data.bio || '',
+          location: response.data.location || '',
+          website: response.data.website || '',
+          socialLinks: {
+            twitter: response.data.socialLinks?.twitter || '',
+            github: response.data.socialLinks?.github || '',
+            linkedin: response.data.socialLinks?.linkedin || ''
+          }
+        });
+        setAvatarPreview(response.data.avatar || '');
+        setCoverPreview(response.data.coverImage || '');
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        toast.error('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
   }, [user]);
 
   // Get user's posts when user is available
@@ -89,29 +97,17 @@ const Profile = () => {
 
     setUploadingAvatar(true);
 
-    const uploadData = new FormData();
-    uploadData.append('avatar', file);
-
     try {
-      const response = await axiosInstance.post('/upload/avatar', uploadData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data.success) {
-        const avatarUrl = response.data.url;
-        setFormData(prev => ({ ...prev, avatar: avatarUrl }));
-        setAvatarPreview(avatarUrl);
-        
-        // Auto-save profile
-        const result = await updateProfile({ ...formData, avatar: avatarUrl });
-        if (result.success) {
-          toast.success('Profile picture updated successfully!');
-        }
+      const response = await profileService.uploadAvatar(file);
+      
+      if (response.success) {
+        setAvatarPreview(response.url);
+        setProfileData(prev => ({ ...prev, avatar: response.url }));
+        toast.success('Profile picture updated successfully!');
       }
     } catch (error) {
       console.error('Avatar upload error:', error);
-      toast.error('Failed to upload avatar. Please try again.');
-      setAvatarPreview(formData.avatar || user?.avatar || '');
+      toast.error(error.message || 'Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);
     }
@@ -134,29 +130,17 @@ const Profile = () => {
 
     setUploadingCover(true);
 
-    const uploadData = new FormData();
-    uploadData.append('cover', file);
-
     try {
-      const response = await axiosInstance.post('/upload/cover', uploadData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data.success) {
-        const coverUrl = response.data.url;
-        setFormData(prev => ({ ...prev, coverImage: coverUrl }));
-        setCoverPreview(coverUrl);
-        
-        // Auto-save profile
-        const result = await updateProfile({ ...formData, coverImage: coverUrl });
-        if (result.success) {
-          toast.success('Cover image updated successfully!');
-        }
+      const response = await profileService.uploadCover(file);
+      
+      if (response.success) {
+        setCoverPreview(response.url);
+        setProfileData(prev => ({ ...prev, coverImage: response.url }));
+        toast.success('Cover image updated successfully!');
       }
     } catch (error) {
       console.error('Cover upload error:', error);
-      toast.error('Failed to upload cover image. Please try again.');
-      setCoverPreview(formData.coverImage || '');
+      toast.error(error.message || 'Failed to upload cover image');
     } finally {
       setUploadingCover(false);
     }
@@ -166,37 +150,24 @@ const Profile = () => {
   const handleSave = async () => {
     setIsSaving(true);
     
-    const result = await updateProfile(formData);
-    
-    if (result.success) {
-      toast.success('Profile updated successfully!');
-      setIsEditing(false);
-    } else {
-      toast.error(result.message || 'Failed to update profile');
-    }
-    
-    setIsSaving(false);
-  };
-
-  // Cancel editing
-  const handleCancelEdit = () => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        bio: user.bio || '',
-        avatar: user.avatar || '',
-        coverImage: user.coverImage || '',
-        location: user.location || '',
-        website: user.website || '',
-        twitter: user.twitter || '',
-        github: user.github || '',
-        linkedin: user.linkedin || ''
+    try {
+      const response = await profileService.updateProfile({
+        bio: formData.bio,
+        location: formData.location,
+        website: formData.website,
+        socialLinks: formData.socialLinks
       });
-      setAvatarPreview(user.avatar || '');
-      setCoverPreview(user.coverImage || '');
+      
+      if (response.success) {
+        setProfileData(prev => ({ ...prev, ...response.data }));
+        toast.success('Profile updated successfully!');
+      }
+    } catch (error) {
+      console.error('Update profile error:', error);
+      toast.error(error.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
     }
-    setIsEditing(false);
   };
 
   const handleLogout = () => {
@@ -206,7 +177,18 @@ const Profile = () => {
   };
 
   const updateFormData = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   // Get user stats
@@ -221,7 +203,7 @@ const Profile = () => {
   const stats = getUserStats();
 
   // Show loading state
-  if (authLoading || blogLoading) {
+  if (authLoading || blogLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -257,13 +239,13 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Cover Image Section */}
-      <div className="relative">
+      {/* Cover Image Section with Edit Button */}
+      <div className="relative group">
         <div className="relative h-64 md:h-80 w-full overflow-hidden bg-gradient-to-r from-gray-800 to-gray-900">
-          {(coverPreview || formData.coverImage) ? (
+          {(coverPreview || profileData?.coverImage) ? (
             <>
               <img 
-                src={coverPreview || formData.coverImage} 
+                src={coverPreview || profileData?.coverImage} 
                 alt="Cover"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -271,29 +253,21 @@ const Profile = () => {
                   e.target.parentElement.classList.add('bg-gradient-to-r', 'from-gray-800', 'to-gray-900');
                 }}
               />
-              {isEditing && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => coverInputRef.current?.click()}
-                    className="px-4 py-2 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                  >
-                    Change Cover Image
-                  </button>
-                </div>
-              )}
             </>
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              {isEditing && (
-                <button
-                  onClick={() => coverInputRef.current?.click()}
-                  className="px-4 py-2 bg-white/90 text-gray-900 rounded-lg font-medium hover:bg-white transition-colors"
-                >
-                  Add Cover Image
-                </button>
-              )}
-            </div>
+            <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-900"></div>
           )}
+          
+          {/* Edit Cover Button - Always visible on hover */}
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => coverInputRef.current?.click()}
+              disabled={uploadingCover}
+              className="px-4 py-2 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              {uploadingCover ? 'Uploading...' : (coverPreview || profileData?.coverImage ? 'Change Cover Image' : 'Add Cover Image')}
+            </button>
+          </div>
           
           {uploadingCover && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -318,12 +292,12 @@ const Profile = () => {
           <div className="relative -mt-20 sm:-mt-24 md:-mt-28">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-8">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-                {/* Avatar Section */}
+                {/* Avatar Section with Edit Button */}
                 <div className="relative group">
                   <div className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full bg-white p-1 shadow-2xl">
-                    {avatarPreview || formData.avatar ? (
+                    {avatarPreview || profileData?.avatar ? (
                       <img 
-                        src={avatarPreview || formData.avatar} 
+                        src={avatarPreview || profileData?.avatar} 
                         alt={user.name}
                         className="w-full h-full rounded-full object-cover"
                         onError={(e) => {
@@ -344,7 +318,7 @@ const Profile = () => {
                   <button
                     onClick={() => avatarInputRef.current?.click()}
                     disabled={uploadingAvatar}
-                    className="absolute bottom-0 right-0 bg-gray-900 text-white p-2 rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="absolute bottom-0 right-0 bg-gray-900 text-white p-2 rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
                     title="Change profile picture"
                   >
                     {uploadingAvatar ? (
@@ -369,35 +343,16 @@ const Profile = () => {
                   />
                 </div>
                 
-                {/* User Info */}
+                {/* User Info - Display Only */}
                 <div className="flex-1 text-center md:text-left">
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => updateFormData('name', e.target.value)}
-                      className="text-2xl md:text-3xl font-bold text-gray-900 bg-gray-50 border border-gray-300 rounded-lg px-3 py-1 mb-2 w-full md:w-auto"
-                    />
-                  ) : (
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{user.name}</h1>
-                  )}
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{user.name}</h1>
                   <p className="text-gray-500 mb-3">{user.email}</p>
                   
-                  {formData.bio && !isEditing && (
+                  {formData.bio && (
                     <p className="text-gray-600 max-w-md">{formData.bio}</p>
                   )}
                   
-                  {isEditing && (
-                    <textarea
-                      rows="3"
-                      value={formData.bio}
-                      onChange={(e) => updateFormData('bio', e.target.value)}
-                      className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-600"
-                      placeholder="Tell us about yourself..."
-                    />
-                  )}
-                  
-                  {formData.location && !isEditing && (
+                  {formData.location && (
                     <p className="text-sm text-gray-400 mt-2 flex items-center justify-center md:justify-start gap-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -407,65 +362,27 @@ const Profile = () => {
                     </p>
                   )}
                 </div>
-                
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-2">
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="px-5 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
-                      >
-                        {isSaving ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
-                      >
-                        Edit Profile
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="px-5 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-all duration-200"
-                      >
-                        Logout
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
 
               {/* Stats Section */}
-              {!isEditing && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalPosts}</div>
-                    <div className="text-xs text-gray-500">Posts</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalLikes.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Total Likes</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalComments.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Comments</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.totalViews.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Total Views</div>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stats.totalPosts}</div>
+                  <div className="text-xs text-gray-500">Posts</div>
                 </div>
-              )}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stats.totalLikes.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">Total Likes</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stats.totalComments.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">Comments</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stats.totalViews.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500">Total Views</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -484,16 +401,6 @@ const Profile = () => {
               }`}
             >
               My Posts ({userPosts.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('comments')}
-              className={`py-4 px-1 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap ${
-                activeTab === 'comments'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Comments
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -545,73 +452,130 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Comments Tab */}
-        {activeTab === 'comments' && (
-          <div className="space-y-4">
-            {userComments.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-                <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No comments yet</h3>
-                <p className="text-gray-500">Your comments on posts will appear here</p>
-              </div>
-            ) : (
-              userComments.map((comment) => (
-                <div key={comment.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-gray-900">You commented on</span>
-                        <Link to={`/blog/${comment.postId}`} className="text-sm text-gray-600 hover:text-gray-900">
-                          {comment.postTitle}
-                        </Link>
-                      </div>
-                      <p className="text-gray-700">{comment.content}</p>
-                      <p className="text-xs text-gray-400 mt-2">{new Date(comment.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <button className="text-gray-400 hover:text-red-500 transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Settings Tab */}
+        {/* Settings Tab - All editing happens here */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 shadow-sm">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Profile Settings</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Profile Settings</h2>
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
               
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => updateFormData('name', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
-                  />
+              <div className="space-y-6">
+                {/* Avatar Settings */}
+                <div className="border-b border-gray-200 pb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Profile Picture</label>
+                  <div className="flex items-center gap-6">
+                    <div className="w-20 h-20 rounded-full bg-gray-100 overflow-hidden">
+                      {avatarPreview || profileData?.avatar ? (
+                        <img 
+                          src={avatarPreview || profileData?.avatar} 
+                          alt="Profile preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                          <span className="text-2xl font-bold text-white">
+                            {user.name?.charAt(0).toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-lg file:border-0
+                          file:text-sm file:font-medium
+                          file:bg-gray-900 file:text-white
+                          hover:file:bg-gray-800
+                          cursor-pointer"
+                        disabled={uploadingAvatar}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        JPG, PNG or GIF. Max 2MB.
+                      </p>
+                      {uploadingAvatar && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                          <span className="text-xs text-gray-500">Uploading...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData('email', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
-                  />
+
+                {/* Cover Image Settings */}
+                <div className="border-b border-gray-200 pb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Cover Image</label>
+                  <div className="space-y-3">
+                    <div className="h-32 w-full rounded-lg overflow-hidden bg-gray-100">
+                      {(coverPreview || profileData?.coverImage) ? (
+                        <img 
+                          src={coverPreview || profileData?.coverImage} 
+                          alt="Cover preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-300 flex items-center justify-center">
+                          <span className="text-sm text-gray-500">No cover image</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverUpload}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-lg file:border-0
+                          file:text-sm file:font-medium
+                          file:bg-gray-900 file:text-white
+                          hover:file:bg-gray-800
+                          cursor-pointer"
+                        disabled={uploadingCover}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        JPG, PNG or GIF. Max 5MB. Recommended size: 1200x400px
+                      </p>
+                      {uploadingCover && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                          <span className="text-xs text-gray-500">Uploading...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                
-                <div>
+
+                {/* Name and Email (Read-only) */}
+                <div className="border-b border-gray-200 pb-6">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <p className="text-gray-900 bg-gray-50 px-4 py-2 rounded-lg">{user.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">Contact support to change your name</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <p className="text-gray-900 bg-gray-50 px-4 py-2 rounded-lg">{user.email}</p>
+                    <p className="text-xs text-gray-500 mt-1">Contact support to change your email</p>
+                  </div>
+                </div>
+
+                {/* Bio */}
+                <div className="border-b border-gray-200 pb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
                   <textarea
                     rows="4"
@@ -620,9 +584,11 @@ const Profile = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     placeholder="Tell us about yourself..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">Maximum 500 characters</p>
                 </div>
                 
-                <div>
+                {/* Location */}
+                <div className="border-b border-gray-200 pb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <input
                     type="text"
@@ -633,7 +599,8 @@ const Profile = () => {
                   />
                 </div>
                 
-                <div>
+                {/* Website */}
+                <div className="border-b border-gray-200 pb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
                   <input
                     type="url"
@@ -644,52 +611,53 @@ const Profile = () => {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Twitter</label>
-                  <input
-                    type="text"
-                    value={formData.twitter}
-                    onChange={(e) => updateFormData('twitter', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
-                    placeholder="@username"
-                  />
+                {/* Social Links */}
+                <div className="border-b border-gray-200 pb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Social Links</label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Twitter</label>
+                      <input
+                        type="text"
+                        value={formData.socialLinks.twitter}
+                        onChange={(e) => updateFormData('socialLinks.twitter', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                        placeholder="@username"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">GitHub</label>
+                      <input
+                        type="text"
+                        value={formData.socialLinks.github}
+                        onChange={(e) => updateFormData('socialLinks.github', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                        placeholder="username"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">LinkedIn</label>
+                      <input
+                        type="text"
+                        value={formData.socialLinks.linkedin}
+                        onChange={(e) => updateFormData('socialLinks.linkedin', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                        placeholder="linkedin.com/in/username"
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">GitHub</label>
-                  <input
-                    type="text"
-                    value={formData.github}
-                    onChange={(e) => updateFormData('github', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
-                    placeholder="username"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn</label>
-                  <input
-                    type="text"
-                    value={formData.linkedin}
-                    onChange={(e) => updateFormData('linkedin', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
-                    placeholder="linkedin.com/in/username"
-                  />
-                </div>
-                
-                <div className="pt-4 flex gap-3">
+                {/* Save Button */}
+                <div className="pt-4">
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex-1 px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                    className="w-full px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
                   >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className="px-6 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                  >
-                    Cancel
+                    {isSaving ? 'Saving Changes...' : 'Save All Changes'}
                   </button>
                 </div>
               </div>
@@ -698,7 +666,6 @@ const Profile = () => {
         )}
       </div>
 
-      {/* Add animation styles */}
       <style>{`
         @keyframes fadeInUp {
           from {

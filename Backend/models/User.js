@@ -35,10 +35,7 @@ const userSchema = new mongoose.Schema({
     sparse: true,
     index: true,
   },
-  avatar: {
-    type: String,
-    default: '',
-  },
+
   isVerified: {
     type: Boolean,
     default: false,

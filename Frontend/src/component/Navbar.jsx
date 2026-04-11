@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Logo } from '../assets/assets';
 import { useBlog } from '../context/BlogContext';
 import { useUser } from '../context/UserContext';
+import profileService from '../services/profileService';
 
 const Navbar = () => {
   const { performSearch, searchQuery, clearSearch } = useBlog();
@@ -11,8 +12,35 @@ const Navbar = () => {
   const [searchQueryLocal, setSearchQueryLocal] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Fetch profile avatar when user is authenticated
+  useEffect(() => {
+    const fetchProfileAvatar = async () => {
+      if (isAuthenticated && user) {
+        setProfileLoading(true);
+        try {
+          const response = await profileService.getMyProfile();
+          if (response.success && response.data.avatar) {
+            setProfileAvatar(response.data.avatar);
+          }
+        } catch (error) {
+          console.error('Error fetching profile avatar:', error);
+          // Fallback to user.avatar if available
+          if (user.avatar) {
+            setProfileAvatar(user.avatar);
+          }
+        } finally {
+          setProfileLoading(false);
+        }
+      }
+    };
+
+    fetchProfileAvatar();
+  }, [isAuthenticated, user]);
 
   // Sync local search query with context
   useEffect(() => {
@@ -90,6 +118,15 @@ const Navbar = () => {
       .slice(0, 2);
   };
 
+  // Get avatar URL (priority: profile avatar > user avatar > null)
+  const getAvatarUrl = () => {
+    if (profileAvatar) return profileAvatar;
+    if (user?.avatar) return user.avatar;
+    return null;
+  };
+
+  const avatarUrl = getAvatarUrl();
+
   return (
     <>
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-gray-200 shadow-sm">
@@ -151,91 +188,97 @@ const Navbar = () => {
             </div>
 
             {/* Desktop Actions - Conditional based on auth */}
-            <div className="hidden md:flex items-center gap-4">
-              {isAuthenticated && user ? (
-                // Logged in - Show user profile menu
-                <div className="relative user-menu">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-2 focus:outline-none"
-                  >
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">
-                      {user.avatar ? (
-                        <img 
-                          src={user.avatar} 
-                          alt={user.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        getUserInitials()
-                      )}
-                    </div>
-                    <svg 
-                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+           <div className="hidden md:flex items-center gap-4">
+  {isAuthenticated && user ? (
+    // Logged in - Show user profile menu
+    <div className="relative user-menu">
+      <button
+        onClick={() => setShowUserMenu(!showUserMenu)}
+        className="flex items-center gap-2 focus:outline-none"
+      >
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl} 
+              alt={user.name}
+              className="w-full h-full rounded-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = `https://ui-avatars.com/api/?background=1e293b&color=fff&size=100&name=${user.name}`;
+              }}
+            />
+          ) : (
+            <span className="text-sm font-medium">
+              {getUserInitials()}
+            </span>
+          )}
+        </div>
+        <svg 
+          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`}
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-                  {/* Dropdown Menu */}
-                  {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-fadeIn">
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                      </div>
-                      <Link
-                        to="/profile"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        My Profile
-                      </Link>
-                      <Link
-                        to="/myblogs"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                        </svg>
-                        My Blogs
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Not logged in - Show login/signup buttons
-                <>
-                  <Link 
-                    to="/login" 
-                    className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    Log in
-                  </Link>
-                  <Link to="/signup">
-                    <button className="px-5 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
-                      Sign up
-                    </button>
-                  </Link>
-                </>
-              )}
-            </div>
+      {/* Dropdown Menu */}
+      {showUserMenu && (
+        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-fadeIn">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          </div>
+          <Link
+            to="/profile"
+            onClick={() => setShowUserMenu(false)}
+            className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            My Profile
+          </Link>
+          <Link
+            to="/myblogs"
+            onClick={() => setShowUserMenu(false)}
+            className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            My Blogs
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
+          </button>
+        </div>
+      )}
+    </div>
+  ) : (
+    // Not logged in - Show login/signup buttons
+    <>
+      <Link 
+        to="/login" 
+        className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+      >
+        Log in
+      </Link>
+      <Link to="/signup">
+        <button className="px-5 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+          Sign up
+        </button>
+      </Link>
+    </>
+  )}
+</div>
 
             {/* Mobile Menu Toggle */}
             <button
@@ -313,11 +356,19 @@ const Navbar = () => {
             {isMobileMenuOpen && (
               <div className="py-4 border-t border-gray-100 animate-slideDown">
                 {isAuthenticated && user ? (
-                  // Mobile - Logged in view
+                  // Mobile - Logged in view with avatar
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium">
-                        {getUserInitials()}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-sm font-medium overflow-hidden">
+                        {avatarUrl ? (
+                          <img 
+                            src={avatarUrl} 
+                            alt={user.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          getUserInitials()
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{user.name}</p>
@@ -380,19 +431,7 @@ const Navbar = () => {
       </nav>
 
       {/* Active Search Indicator Bar */}
-      {searchQueryLocal && (
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 text-center">
-          <p className="text-sm text-gray-600">
-            Showing results for: <span className="font-medium text-gray-900">"{searchQueryLocal}"</span>
-            <button 
-              onClick={handleClearSearch}
-              className="ml-3 text-xs text-gray-400 hover:text-gray-600"
-            >
-              Clear
-            </button>
-          </p>
-        </div>
-      )}
+
     </>
   );
 };

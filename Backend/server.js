@@ -9,6 +9,7 @@ import connectDB from './config/mongodb.js';
 import googleRoute from './route/googleRoute.js';
 import userRoute from './route/userRoute.js';
 import facebookRouter from './route/facebookRoute.js';
+import ProfileRouter from './route/profileRoutes.js';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use(express.json());
 app.use('/api/users', googleRoute);
 app.use('/api/users', facebookRouter);
 app.use('/api/users', userRoute);
+app.use('/api/profile', ProfileRouter);
 
 // Server port
 const PORT = process.env.PORT || 5000;
