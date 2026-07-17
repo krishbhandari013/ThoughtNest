@@ -27,7 +27,7 @@ const getPlainTextPreview = (html, maxLength = 200) => {
 const Profile = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, logout } = useUser();
-  const { getPostsByWriter, loading: blogLoading } = useBlog();
+  const { loading: blogLoading } = useBlog();
   
   // State management
   const [userPosts, setUserPosts] = useState([]);
@@ -350,10 +350,10 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white">
       {/* Cover Image Section with Edit Button */}
       <div className="relative group">
-        <div className="relative h-64 md:h-80 w-full overflow-hidden bg-gradient-to-r from-gray-800 to-gray-900">
+        <div className="relative h-64 md:h-80 w-full overflow-hidden bg-linear-to-r from-gray-800 to-gray-900">
           {(coverPreview || profileData?.coverImage) ? (
             <>
               <img 
@@ -367,7 +367,7 @@ const Profile = () => {
               />
             </>
           ) : (
-            <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-900"></div>
+            <div className="w-full h-full bg-linear-to-r from-gray-800 to-gray-900"></div>
           )}
           
           {/* Edit Cover Button - Always visible on hover */}
@@ -418,7 +418,7 @@ const Profile = () => {
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                        <div className="w-full h-full rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center">
                         <span className="text-4xl md:text-5xl font-bold text-white">
                           {user.name?.charAt(0).toUpperCase() || 'U'}
                         </span>
@@ -550,7 +550,7 @@ const Profile = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {userPosts.map((post, index) => (
+                {userPosts.map((post) => (
                   <div 
                     key={post._id || post.id}
                     className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300"
