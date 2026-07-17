@@ -7,8 +7,7 @@ import Filter from '../component/Filter';
 import { useSearchParams } from 'react-router-dom';
 import axiosInstance from '../services/axiosInstance';
 
-// Lazy load BlogCard for better performance
-const BlogCard = lazy(() => import('../component/BlogCard'));
+import BlogCard from '../component/BlogCard';
 
 const Home = () => {
   const { performSearch, searchQuery, filterType, clearSearch } = useBlog();

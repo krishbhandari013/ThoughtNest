@@ -1,17 +1,18 @@
-// client/src/App.jsx
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './component/Navbar';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import MyBlogs from './pages/MyBlogs.jsx';
-import Profile from './pages/Profile';
-import ViewProfile from './pages/ViewProfile';
-import Signup from './pages/Signup';
-import Blog from './pages/Blog';
-import GoogleCallback from './pages/Googlecallback';
-import CreateBlog from './pages/CreateBlog';
 import { Toaster } from 'react-hot-toast';
+
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const MyBlogs = lazy(() => import('./pages/MyBlogs.jsx'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ViewProfile = lazy(() => import('./pages/ViewProfile'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Blog = lazy(() => import('./pages/Blog'));
+const GoogleCallback = lazy(() => import('./pages/Googlecallback'));
+const CreateBlog = lazy(() => import('./pages/CreateBlog'));
+
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,20 +41,19 @@ function App() {
   }}
 />
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/myblogs" element={<MyBlogs />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/profile/:userId" element={<ViewProfile />} />
-        <Route path="/blog/:id" element={<Blog />} />
-        <Route path="/callback" element={<GoogleCallback />} />
-         <Route path="/create-blog" element={<CreateBlog />} />
-      
-
-      </Routes>
-  
+      <Suspense fallback={<div className="flex justify-center items-center h-screen">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/myblogs" element={<MyBlogs />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:userId" element={<ViewProfile />} />
+          <Route path="/blog/:id" element={<Blog />} />
+          <Route path="/callback" element={<GoogleCallback />} />
+          <Route path="/create-blog" element={<CreateBlog />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
