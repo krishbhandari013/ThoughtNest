@@ -5,7 +5,7 @@ import { Toaster } from 'react-hot-toast';
 
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
-const MyBlogs = lazy(() => import('./pages/MyBlogs.jsx'));
+const MyBlogs = lazy(() => import('./pages/Myblogs'));
 const Profile = lazy(() => import('./pages/Profile'));
 const ViewProfile = lazy(() => import('./pages/ViewProfile'));
 const Signup = lazy(() => import('./pages/Signup'));
