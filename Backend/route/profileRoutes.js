@@ -15,6 +15,7 @@ import { validate, updateProfileSchema } from '../validators/profileValidator.js
 
 const ProfileRouter = express.Router();
 
+ProfileRouter.get('/user/:userId', getProfileByUserId);
 // All routes are protected (require authentication)
 ProfileRouter.use(protect);
 
@@ -29,10 +30,9 @@ ProfileRouter.post('/avatar', uploadAvatarMiddleware, uploadAvatar);
 ProfileRouter.delete('/avatar', deleteAvatar);
 
 // Cover image upload and delete
-ProfileRouter.post('/cover', uploadCoverMiddleware, uploadCover);
+ProfileRouter.post('/cover', uploadCoverMiddleware , uploadCover);
 ProfileRouter.delete('/cover', deleteCover);
 
 // Get profile by user ID (public - but still protected for now)
-ProfileRouter.get('/user/:userId', getProfileByUserId);
 
 export default ProfileRouter;

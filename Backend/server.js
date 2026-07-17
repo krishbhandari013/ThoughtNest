@@ -10,6 +10,8 @@ import googleRoute from './route/googleRoute.js';
 import userRoute from './route/userRoute.js';
 import facebookRouter from './route/facebookRoute.js';
 import ProfileRouter from './route/profileRoutes.js';
+import blogRouter from './route/blogRoutes.js';
+import commentRoutes from './route/commentRoutes.js';
 
 const app = express();
 
@@ -51,6 +53,8 @@ app.use('/api/users', googleRoute);
 app.use('/api/users', facebookRouter);
 app.use('/api/users', userRoute);
 app.use('/api/profile', ProfileRouter);
+app.use('/api/blogs', blogRouter);
+app.use('/api/comments', commentRoutes);
 
 // Server port
 const PORT = process.env.PORT || 5000;

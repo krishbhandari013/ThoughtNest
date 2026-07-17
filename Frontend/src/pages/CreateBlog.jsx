@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import RichTextEditor from '../component/RichTextEditor';
-import ImageUploader from '../component/ImageUploader';
 import TagInput from '../component/TagInput';
 import BlogCard from '../component/BlogCard';
 import axiosInstance from '../services/axiosInstance';
+import { toast } from 'react-hot-toast';
 
 const CreateBlog = () => {
   const navigate = useNavigate();
@@ -14,12 +14,13 @@ const CreateBlog = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [coverImagePreview, setCoverImagePreview] = useState('');
+  const [coverImageFile, setCoverImageFile] = useState(null);
   
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     excerpt: '',
-    coverImage: '',
     category: '',
     tags: [],
     status: 'draft',
@@ -46,49 +47,60 @@ const CreateBlog = () => {
   }, [isAuthenticated, authLoading, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
   const handleContentChange = (content) => {
-    setFormData({
-      ...formData,
-      content: content
-    });
-  };
-
-  const handleImageUpload = (imageUrl) => {
-    setFormData({
-      ...formData,
-      coverImage: imageUrl
-    });
+    setFormData((prev) => ({ ...prev, content }));
   };
 
   const handleTagsChange = (tags) => {
-    setFormData({
-      ...formData,
-      tags: tags
-    });
+    setFormData((prev) => ({ ...prev, tags }));
+  };
+
+  const handleCoverImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      e.target.value = '';
+      return;
+    }
+
+    setCoverImageFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const validateForm = () => {
     if (!formData.title.trim()) {
-      setError('Title is required');
+      toast.error('Title is required');
       return false;
     }
     if (!formData.content.trim()) {
-      setError('Content is required');
+      toast.error('Content is required');
       return false;
     }
     if (formData.title.length < 5) {
-      setError('Title must be at least 5 characters');
+      toast.error('Title must be at least 5 characters');
       return false;
     }
     if (formData.title.length > 100) {
-      setError('Title cannot exceed 100 characters');
+      toast.error('Title cannot exceed 100 characters');
       return false;
     }
     return true;
@@ -102,23 +114,33 @@ const CreateBlog = () => {
     setLoading(true);
     setError('');
 
-    const blogData = {
-      ...formData,
-      status: status,
-      author: user?._id,
-      authorName: user?.name,
-      publishedAt: status === 'published' ? new Date() : null,
-    };
+    // Create FormData for multipart upload
+    const formDataToSend = new FormData();
+    formDataToSend.append('title', formData.title);
+    formDataToSend.append('content', formData.content);
+    formDataToSend.append('excerpt', formData.excerpt);
+    formDataToSend.append('category', formData.category);
+    formDataToSend.append('tags', JSON.stringify(formData.tags));
+    formDataToSend.append('status', status);
+    
+    if (coverImageFile) {
+      formDataToSend.append('coverImage', coverImageFile);
+    }
 
     try {
-      const response = await axiosInstance.post('/blogs', blogData);
+      // Let the browser/axios set multipart boundaries automatically.
+      const response = await axiosInstance.post('/blogs/create', formDataToSend);
       
       if (response.data.success) {
-        navigate(`/blog/${response.data.data.slug}`);
+        toast.success('Blog created successfully!');
+        navigate(`/blog/${response.data.data._id}`);
       }
     } catch (err) {
       console.error('Error creating blog:', err);
-      setError(err.response?.data?.message || 'Failed to create blog post');
+      const fieldError = err.response?.data?.errors?.[0]?.message;
+      const errorMessage = fieldError || err.response?.data?.message || 'Failed to create blog post';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -131,19 +153,22 @@ const CreateBlog = () => {
   const wordCount = plainTextContent ? plainTextContent.split(' ').length : 0;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
   const canPublish = Boolean(formData.title.trim() && formData.content.trim());
+  
   const previewPost = {
+    _id: 'preview',
     id: 'preview',
     title: formData.title || 'Untitled Story',
-    content: formData.excerpt || plainTextContent || 'Start writing to see your blog card preview.',
+    excerpt: formData.excerpt,
+    content: formData.content,
+    category: formData.category,
     tags: formData.tags,
     featured: false,
-    img: user?.avatar || '',
-    writer: {
-      name: user?.name || 'Guest Writer',
-    },
-    date: new Date().toISOString(),
-    likes: 0,
-    comments: 0,
+    authorName: user?.name || 'Guest Writer',
+    author: { name: user?.name || 'Guest Writer' },
+    createdAt: new Date().toISOString(),
+    publishedAt: new Date().toISOString(),
+    likesCount: 0,
+    commentsCount: 0,
     shares: 0,
     views: 0,
   };
@@ -160,7 +185,7 @@ const CreateBlog = () => {
     );
   }
 
-  // If not authenticated, show message (redirect will happen via useEffect)
+  // If not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -186,33 +211,29 @@ const CreateBlog = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-10">
-  <div className="border-b border-gray-100 pb-8">
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-         
+        <div className="mb-10">
+          <div className="border-b border-gray-100 pb-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-light text-gray-900 tracking-tight">
+                  Create a <span className="font-semibold">New Story</span>
+                </h1>
+                <div className="w-full h-0.5 bg-gray-900 mt-4"></div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setShowPreview(!showPreview)}
+                className="group flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                <span className="text-sm font-medium">{showPreview ? 'Back to Writing' : 'Preview Story'}</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={showPreview ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-        <h1 className="text-3xl md:text-4xl font-light text-gray-900 tracking-tight">
-          Create a <span className="font-semibold">New Story</span>
-        </h1>
-        <div className="w-full h-0.5 bg-gray-900 mt-4"></div>
-      
-      </div>
-      
-      <button
-        type="button"
-        onClick={() => setShowPreview(!showPreview)}
-        className="group flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
-      >
-        <span className="text-sm font-medium">{showPreview ? 'Back to Writing' : 'Preview Story'}</span>
-        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={showPreview ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
-        </svg>
-      </button>
-    </div>
-  </div>
-</div>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
@@ -223,7 +244,7 @@ const CreateBlog = () => {
                 </svg>
                 {error}
               </div>
-              <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">x</button>
+              <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">×</button>
             </div>
           </div>
         )}
@@ -233,14 +254,49 @@ const CreateBlog = () => {
             {!showPreview ? (
               <form className="space-y-6">
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 md:p-7 space-y-6">
+                  
+                  {/* Cover Image Upload */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Cover Image</label>
-                    <ImageUploader
-                      onImageUpload={handleImageUpload}
-                      currentImage={formData.coverImage}
-                    />
+                    <div className="space-y-3">
+                      {coverImagePreview && (
+                        <div className="relative">
+                          <img 
+                            src={coverImagePreview} 
+                            alt="Cover preview" 
+                            className="w-full h-48 object-cover rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCoverImagePreview('');
+                              setCoverImageFile(null);
+                            }}
+                            className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageChange}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-lg file:border-0
+                          file:text-sm file:font-medium
+                          file:bg-gray-900 file:text-white
+                          hover:file:bg-gray-800
+                          cursor-pointer"
+                      />
+                      <p className="text-xs text-gray-500">JPG, PNG, GIF, WebP. Max 5MB.</p>
+                    </div>
                   </div>
 
+                  {/* Title */}
                   <div>
                     <label htmlFor="title" className="block text-sm font-semibold text-slate-700 mb-2">
                       Title <span className="text-red-500">*</span>
@@ -252,7 +308,7 @@ const CreateBlog = () => {
                       value={formData.title}
                       onChange={handleChange}
                       placeholder="Write a strong, specific title"
-                      className={`w-full px-4 py-3 border ${error && !formData.title ? 'border-red-500' : 'border-slate-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-lg`}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent text-lg"
                       maxLength="100"
                     />
                     <div className="flex justify-between mt-2">
@@ -263,6 +319,7 @@ const CreateBlog = () => {
                     </div>
                   </div>
 
+                  {/* Excerpt */}
                   <div>
                     <label htmlFor="excerpt" className="block text-sm font-semibold text-slate-700 mb-2">Excerpt</label>
                     <textarea
@@ -278,6 +335,7 @@ const CreateBlog = () => {
                     <p className="text-xs text-slate-500 mt-2">{formData.excerpt.length}/220 characters</p>
                   </div>
 
+                  {/* Category and Tags */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="category" className="block text-sm font-semibold text-slate-700 mb-2">Category</label>
@@ -304,6 +362,7 @@ const CreateBlog = () => {
                     </div>
                   </div>
 
+                  {/* Content */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Content <span className="text-red-500">*</span>
@@ -313,13 +372,11 @@ const CreateBlog = () => {
                       onChange={handleContentChange}
                       placeholder="Start writing your post..."
                     />
-                    {!formData.content && (
-                      <p className="text-xs text-red-500 mt-2">Content is required</p>
-                    )}
                   </div>
 
                   <div className="text-xs text-slate-500">Fields marked with * are required before publishing.</div>
 
+                  {/* Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <button
                       type="button"
@@ -343,6 +400,7 @@ const CreateBlog = () => {
                 </div>
               </form>
             ) : (
+              // Preview section
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
                 <div className="mb-6">
                   <p className="text-sm font-medium text-slate-700 mb-3">Card Preview</p>
@@ -378,6 +436,7 @@ const CreateBlog = () => {
             )}
           </div>
 
+          {/* Sidebar */}
           <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
               <h3 className="text-sm font-semibold tracking-wide uppercase text-slate-500">Post Summary</h3>
@@ -405,16 +464,16 @@ const CreateBlog = () => {
               <h3 className="text-sm font-semibold tracking-wide uppercase text-slate-500">Publishing Checklist</h3>
               <div className="mt-4 space-y-3 text-sm">
                 <p className={`${formData.title.trim() ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  {formData.title.trim() ? 'Complete' : 'Pending'} title
+                  {formData.title.trim() ? '✓' : '○'} Title
                 </p>
                 <p className={`${formData.content.trim() ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  {formData.content.trim() ? 'Complete' : 'Pending'} main content
+                  {formData.content.trim() ? '✓' : '○'} Content
                 </p>
-                <p className={`${formData.coverImage ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  {formData.coverImage ? 'Complete' : 'Optional'} cover image
+                <p className={`${coverImageFile || coverImagePreview ? 'text-emerald-700' : 'text-slate-500'}`}>
+                  {coverImageFile || coverImagePreview ? '✓' : '○'} Cover Image (Optional)
                 </p>
                 <p className={`${formData.tags.length ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  {formData.tags.length ? 'Complete' : 'Optional'} tags
+                  {formData.tags.length ? '✓' : '○'} Tags (Optional)
                 </p>
               </div>
             </div>

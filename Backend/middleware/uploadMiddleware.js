@@ -34,4 +34,4 @@ export const uploadAvatar = upload.single('avatar');
 export const uploadCover = upload.single('cover');
 
 // Generic image upload
-export const uploadImage = upload.single('image');
+export const uploadCoverImage = upload.single('coverImage');

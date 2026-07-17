@@ -1,127 +1,86 @@
 // client/src/component/Filter.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useBlog } from '../context/BlogContext';
 
 const Filter = () => {
-  const { filterType, changeFilter, searchQuery, clearSearch } = useBlog();
-  const [isAnimating, setIsAnimating] = useState(false);
-  console.log("component filtersrc/component/Navbar.jsxre rendered");
+  const { filterType, changeFilter, clearFilters } = useBlog();
 
-
-  const filters = [
-    { id: 'all', label: 'All Posts', description: 'Show all posts' },
-    { id: 'latest', label: 'Latest', description: 'Newest first' },
-    { id: 'popular', label: 'Popular', description: 'Most viewed' },
-    { id: 'oldest', label: 'Oldest', description: 'Oldest first' }
+  const categories = [
+    { id: 'all', label: 'All', icon: '📰' },
+    { id: 'Technology', label: 'Technology', icon: '💻' },
+    { id: 'Web Development', label: 'Web Dev', icon: '🌐' },
+    { id: 'JavaScript', label: 'JavaScript', icon: '🟡' },
+    { id: 'React', label: 'React', icon: '⚛️' },
+    { id: 'Node.js', label: 'Node.js', icon: '🟢' },
+    { id: 'Design', label: 'Design', icon: '🎨' },
+    { id: 'Career', label: 'Career', icon: '💼' },
+    { id: 'AI & ML', label: 'AI/ML', icon: '🤖' },
+    { id: 'Startup', label: 'Startup', icon: '🚀' },
+    { id: 'Productivity', label: 'Productivity', icon: '⚡' },
   ];
 
   const handleFilterClick = (filterId) => {
-    if (filterType === filterId) return;
-    
-    setIsAnimating(true);
-    changeFilter(filterId);
-    
-    setTimeout(() => {
-      const blogSection = document.getElementById('blog');
-      if (blogSection) {
-        blogSection.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-      setIsAnimating(false);
-    }, 300);
+    if (filterId === 'all') {
+      clearFilters();
+    } else {
+      changeFilter(filterId);
+    }
   };
-
-  const handleClearSearch = () => {
-    clearSearch();
-    
-    setTimeout(() => {
-      const blogSection = document.getElementById('blog');
-      if (blogSection) {
-        blogSection.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    }, 100);
-  };
-
-  const activeFilter = filters.find(f => f.id === filterType);
 
   return (
-    <div className="space-y-6">
-      {/* Desktop Filter Bar - Minimal Design */}
-      <div className="hidden md:block">
-        <div className="border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              {filters.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => handleFilterClick(filter.id)}
-                  className={`relative px-4 py-3 text-sm font-medium transition-all duration-200
-                    ${filterType === filter.id
-                      ? 'text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
-                    }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-
-           
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Filter - Segmented Control Style */}
-      <div className="md:hidden">
-        {/* Search Query Display for Mobile */}
-        {searchQuery && (
-          <div className="mb-4 flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
-            <span className="text-sm text-gray-600">
-              Searching: <span className="font-medium text-gray-900">"{searchQuery}"</span>
-            </span>
-        
-          </div>
-        )}
-
-        {/* Filter Options - Horizontal Scroll */}
-        <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-2 min-w-max">
-            {filters.map((filter) => (
-              <button
-                key={filter.id}
-                onClick={() => handleFilterClick(filter.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${filterType === filter.id
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Active Filter Indicator */}
-      <div className="hidden md:flex items-center justify-between">
+    <div className="mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 uppercase tracking-wider">Active Filter</span>
-          <span className="text-sm font-medium text-gray-900">{activeFilter?.label}</span>
+          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <span className="text-sm font-medium text-gray-600">Filter by category</span>
         </div>
         
-        {isAnimating && (
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            <span className="text-xs text-gray-400">Updating</span>
-          </div>
+        {filterType !== 'all' && (
+          <button
+            onClick={clearFilters}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Clear filter
+          </button>
         )}
       </div>
+      
+      <div className="flex flex-wrap gap-2">
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => handleFilterClick(category.id)}
+            className={`group flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-full transition-all duration-200 ${
+              filterType === category.id
+                ? 'bg-gray-900 text-white shadow-md scale-105'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
+            }`}
+          >
+            <span className="text-base">{category.icon}</span>
+            <span>{category.label}</span>
+            {filterType === category.id && (
+              <svg className="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+        ))}
+      </div>
+      
+      {/* Active filter indicator */}
+      {filterType !== 'all' && (
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-500">Active filter:</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+              {categories.find(c => c.id === filterType)?.icon}
+              {categories.find(c => c.id === filterType)?.label}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

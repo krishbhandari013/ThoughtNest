@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import MyBlogs from './pages/MyBlogs';
 import Profile from './pages/Profile';
+import ViewProfile from './pages/ViewProfile';
 import Signup from './pages/Signup';
 import Blog from './pages/Blog';
 import GoogleCallback from './pages/Googlecallback';
@@ -45,6 +46,7 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/myblogs" element={<MyBlogs />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/:userId" element={<ViewProfile />} />
         <Route path="/blog/:id" element={<Blog />} />
         <Route path="/callback" element={<GoogleCallback />} />
          <Route path="/create-blog" element={<CreateBlog />} />

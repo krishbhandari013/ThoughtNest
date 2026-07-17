@@ -15,6 +15,10 @@ const axiosInstance = axios.create({
 // Request interceptor - Add token to every request
 axiosInstance.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     // Get token from cookie
     const token = Cookies.get('token');
     

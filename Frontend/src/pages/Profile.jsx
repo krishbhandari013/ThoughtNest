@@ -1,11 +1,28 @@
 // client/src/pages/Profile.jsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBlog } from '../context/BlogContext';
 import { useUser } from '../context/UserContext';
 import BlogCard from '../component/BlogCard';
 import profileService from '../services/profileService';
 import { toast } from 'react-hot-toast';
+import axiosInstance from '../services/axiosInstance';
+
+// ✅ Move helper functions outside component for reusability
+const decodeHtmlEntities = (html) => {
+  if (!html) return '';
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = html;
+  return textarea.value;
+};
+
+const getPlainTextPreview = (html, maxLength = 200) => {
+  if (!html) return '';
+  const decoded = decodeHtmlEntities(html);
+  const plainText = decoded.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (plainText.length <= maxLength) return plainText;
+  return plainText.substring(0, maxLength) + '...';
+};
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -22,6 +39,15 @@ const Profile = () => {
   const [coverPreview, setCoverPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deletingPost, setDeletingPost] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    content: '',
+    excerpt: '',
+    category: '',
+    tags: []
+  });
   
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
@@ -72,13 +98,35 @@ const Profile = () => {
     fetchProfile();
   }, [user]);
 
+  // Fetch user's posts from API
+  const fetchUserPosts = useCallback(async () => {
+    if (!user?._id) return;
+    
+    try {
+      const response = await axiosInstance.get('/blogs', {
+        params: {
+          author: user._id,
+          limit: 50
+        }
+      });
+      
+      if (response.data.success) {
+        setUserPosts(Array.isArray(response.data.data) ? response.data.data : []);
+      } else {
+        setUserPosts([]);
+      }
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+      setUserPosts([]);
+    }
+  }, [user?._id]);
+
   // Get user's posts when user is available
   useEffect(() => {
-    if (user && getPostsByWriter) {
-      const usersPosts = getPostsByWriter(user.name);
-      setUserPosts(usersPosts);
+    if (user?._id) {
+      fetchUserPosts();
     }
-  }, [user, getPostsByWriter]);
+  }, [user, fetchUserPosts]);
 
   // Handle avatar upload
   const handleAvatarUpload = async (e) => {
@@ -170,6 +218,66 @@ const Profile = () => {
     }
   };
 
+  // Handle delete post
+  const handleDeletePost = async (postId) => {
+    setDeletingPost(postId);
+    try {
+      const response = await axiosInstance.delete(`/blogs/${postId}`);
+      if (response.data.success) {
+        toast.success('Post deleted successfully!');
+        await fetchUserPosts(); // Refresh posts
+      } else {
+        toast.error('Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete post');
+    } finally {
+      setDeletingPost(null);
+    }
+  };
+
+  // Handle edit post
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    setEditFormData({
+      title: post.title || '',
+      content: post.content || '',
+      excerpt: decodeHtmlEntities(post.excerpt || ''),
+      category: post.category || '',
+      tags: post.tags || []
+    });
+  };
+
+  // Handle update post
+  const handleUpdatePost = async () => {
+    if (!editFormData.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.put(`/blogs/${editingPost._id}`, {
+        title: editFormData.title,
+        content: editFormData.content,
+        excerpt: editFormData.excerpt,
+        category: editFormData.category,
+        tags: editFormData.tags
+      });
+
+      if (response.data.success) {
+        toast.success('Post updated successfully!');
+        setEditingPost(null);
+        await fetchUserPosts(); // Refresh posts
+      } else {
+        toast.error('Failed to update post');
+      }
+    } catch (error) {
+      console.error('Error updating post:', error);
+      toast.error(error.response?.data?.message || 'Failed to update post');
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -192,13 +300,17 @@ const Profile = () => {
   };
 
   // Get user stats
-  const getUserStats = () => ({
-    totalPosts: userPosts.length,
-    totalLikes: userPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
-    totalComments: userPosts.reduce((sum, post) => sum + (post.comments || 0), 0),
-    totalViews: userPosts.reduce((sum, post) => sum + (post.views || 0), 0),
-    totalShares: userPosts.reduce((sum, post) => sum + (post.shares || 0), 0)
-  });
+  const getUserStats = () => {
+    const posts = Array.isArray(userPosts) ? userPosts : [];
+    
+    return {
+      totalPosts: posts.length,
+      totalLikes: posts.reduce((sum, post) => sum + (post.likesCount || post.likes || 0), 0),
+      totalComments: posts.reduce((sum, post) => sum + (post.commentsCount || post.comments || 0), 0),
+      totalViews: posts.reduce((sum, post) => sum + (post.views || 0), 0),
+      totalShares: posts.reduce((sum, post) => sum + (post.shares || 0), 0)
+    };
+  };
 
   const stats = getUserStats();
 
@@ -400,7 +512,7 @@ const Profile = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              My Posts ({userPosts.length})
+              My Posts ({stats.totalPosts})
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -418,7 +530,7 @@ const Profile = () => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* My Posts Tab */}
+        {/* My Posts Tab with Edit/Delete */}
         {activeTab === 'posts' && (
           <div>
             {userPosts.length === 0 ? (
@@ -437,14 +549,90 @@ const Profile = () => {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-6">
                 {userPosts.map((post, index) => (
                   <div 
-                    key={post.id}
-                    className="animate-fadeInUp"
-                    style={{ animationDelay: `${index * 0.05}s`, animationFillMode: 'backwards' }}
+                    key={post._id || post.id}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300"
                   >
-                    <BlogCard post={post} />
+                    <div className="p-6">
+                      {/* Post Header with Edit/Delete Actions */}
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <Link to={`/blog/${post._id}`}>
+                            <h3 className="text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
+                              {post.title}
+                            </h3>
+                          </Link>
+                          <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                            <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <span>{post.views || 0} views</span>
+                            <span>•</span>
+                            <span>{post.likesCount || 0} likes</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditPost(post)}
+                            className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Edit Post"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                                handleDeletePost(post._id);
+                              }
+                            }}
+                            disabled={deletingPost === post._id}
+                            className="p-2 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Delete Post"
+                          >
+                            {deletingPost === post._id ? (
+                              <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* ✅ FIXED: Post Preview with proper HTML entity decoding */}
+                      <p className="text-gray-600 line-clamp-2 mb-4">
+                        {post.excerpt 
+                          ? decodeHtmlEntities(post.excerpt)
+                          : getPlainTextPreview(post.content, 200)}
+                      </p>
+                      
+                      {/* Post Footer */}
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          {post.category && (
+                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                              {post.category}
+                            </span>
+                          )}
+                          {post.tags && post.tags.slice(0, 2).map(tag => (
+                            <span key={tag} className="text-xs">#{tag}</span>
+                          ))}
+                        </div>
+                        <Link 
+                          to={`/blog/${post._id}`}
+                          className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                        >
+                          Read More →
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -452,7 +640,101 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Settings Tab - All editing happens here */}
+        {/* Edit Post Modal */}
+        {editingPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fadeIn">
+            <div className="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Edit Post</h2>
+                <button
+                  onClick={() => setEditingPost(null)}
+                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="Post title"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Excerpt</label>
+                  <textarea
+                    rows="2"
+                    value={editFormData.excerpt}
+                    onChange={(e) => setEditFormData({ ...editFormData, excerpt: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="Short summary"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                  <textarea
+                    rows="6"
+                    value={editFormData.content}
+                    onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="Post content"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="Category"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+                  <input
+                    type="text"
+                    value={editFormData.tags.join(', ')}
+                    onChange={(e) => setEditFormData({ 
+                      ...editFormData, 
+                      tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) 
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="react, javascript, webdev"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleUpdatePost}
+                    className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Update Post
+                  </button>
+                  <button
+                    onClick={() => setEditingPost(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 shadow-sm">
@@ -678,8 +960,21 @@ const Profile = () => {
           }
         }
         
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
         .animate-fadeInUp {
           animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
         }
       `}</style>
     </div>
