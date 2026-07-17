@@ -34,6 +34,7 @@ app.use(
   })
 );
 
+
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
@@ -48,6 +49,14 @@ app.use(
 
 app.use(express.json());
 
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API is working',
+    
+  });
+});
 // Routes
 app.use('/api/users', googleRoute);
 app.use('/api/users', facebookRouter);
