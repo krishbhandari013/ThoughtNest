@@ -11,7 +11,7 @@ import {
   validate,
   createCommentSchema,
   replyToCommentSchema,
-} from '../validators/commentValidator.js';
+} from '../validators/commentvalidator.js';
 
 const  commentRoutes = express.Router();
 
