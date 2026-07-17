@@ -13,7 +13,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      callbackURL: `${process.env.FRONTEND_URL}/api/users/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -50,7 +50,7 @@ passport.use(
     {
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: process.env.FACEBOOK_CALLBACK_URL,
+      callbackURL: `${process.env.FRONTEND_URL}/api/users/facebook/callback`,
       profileFields: ['id', 'displayName', 'photos', 'email'], // Request specific fields
       enableProof: true, // Adds appsecret_proof for security
     },
